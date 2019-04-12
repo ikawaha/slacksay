@@ -1,0 +1,20 @@
+{
+  "command": "say",
+  "channel": {
+    "yomi": ["random", "ザツダン"],
+    "includes": [],
+    "excludes": ["bot-report"]
+  },
+  "user": {
+    "yomi": ["ito", "イトウ"],
+    "includes": [],
+    "excludes": ["my_slack_name"]
+  },
+  "keyword": {
+    "yomi": ["dev", "開発環境"],
+    "includes": ["レポート"],
+    "excludes": ["info:"]
+  },
+  "bot_message": false,
+  "timeout": "1m30s"
+}
