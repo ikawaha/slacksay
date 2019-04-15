@@ -66,7 +66,7 @@ note. If you do not specify anything for these options, the default values are u
     "excludes": ["my_slack_name"]
   },
   "keyword": {
-    "yomi": ["dev", "デブ"],
+    "yomi": ["dev", "開発環境"],
     "includes": ["レポート"],
     "excludes": ["info:"]
   },
@@ -83,14 +83,14 @@ Options are specified, messages are filtered in the following order:
    1. includes ?
 1. user
    1. includes ?
-1. keyword
+1. keyword (Convert a message to lowercase and apply filters to it.)
    1. includes ?
 1. bot_message ?
 1. channel
    1. excludes ?
 1. user
    1. excludes ?
-1. keyword
+1. keyword (Convert a message to lowercase and apply filters to it.)
    1. excludes ?
 
 ---
