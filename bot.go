@@ -76,10 +76,10 @@ func NewBot(ctx context.Context, token string, cfg *Config) (*Bot, error) {
 }
 
 func (bot Bot) Close() {
+	close(bot.queue)
 	if err := bot.Client.Close(); err != nil {
 		log.Printf("bot close, %v", err)
 	}
-	close(bot.queue)
 }
 
 func (bot Bot) Filter(msg *slackbot.Message) (ok bool) {
