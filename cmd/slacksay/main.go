@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/ikawaha/slacksay"
 )
@@ -38,7 +39,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "configureation error, %v", err)
 		return
 	}
-	bot, err := slacksay.NewBot(context.Background(), opt.token, config)
+	ctx, cancel := context.WithCancel(context.Background())
+	bot, err := slacksay.NewBot(ctx, opt.token, config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "configureation error, %v", err)
 		return
@@ -51,8 +53,11 @@ func main() {
 		msg, err := bot.GetMessage()
 		if err != nil {
 			log.Printf("receive error, %v", err)
+			cancel()
 			bot.Close()
-			if bot, err = slacksay.NewBot(context.Background(), opt.token, config); err != nil { // reboot
+			ctx, cancel = context.WithCancel(context.Background())
+			time.Sleep(3 * time.Second)
+			if bot, err = slacksay.NewBot(ctx, opt.token, config); err != nil { // reboot
 				log.Fatalf("reboot failed, %v", err)
 			}
 			log.Printf("reboot")
