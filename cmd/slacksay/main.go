@@ -50,7 +50,7 @@ func main() {
 	fmt.Fprintln(os.Stderr, "^C exits")
 
 	for {
-		msg, err := bot.GetMessage()
+		msg, err := bot.GetMessage(ctx)
 		if err != nil {
 			log.Printf("receive error, %v", err)
 			cancel()
@@ -64,7 +64,7 @@ func main() {
 			continue
 		}
 		log.Printf("bot_id: %v, msg_user_id: %v, msg:%+v\n", bot.ID, msg.UserID, msg)
-		if msg.Type != "message" && len(msg.TextBody()) == 0 {
+		if msg.Type != "message" && len(msg.Text) == 0 {
 			continue
 		}
 		go bot.Response(&msg)
