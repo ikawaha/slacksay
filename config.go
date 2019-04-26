@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Config represents the setting for the slacksay bot.
 type Config struct {
 	Command    string    `json:"command"`
 	Channel    Condition `json:"channel"`
@@ -16,21 +17,22 @@ type Config struct {
 	Timeout    string    `json:"timeout"`
 }
 
+// Condition represents message filters and pronunciations for some keywords.
 type Condition struct {
 	Yomi     []string          `json:"yomi"`
 	Includes []string          `json:"includes"`
 	Excludes []string          `json:"excludes"`
-	replacer *strings.Replacer `json:-`
+	replacer *strings.Replacer `json:"-"`
 }
 
-func (c Condition) NewYomiReplacer() (*strings.Replacer, error) {
+func (c Condition) newYomiReplacer() (*strings.Replacer, error) {
 	if len(c.Yomi)%2 == 1 {
 		return nil, fmt.Errorf("invalid yomi format")
 	}
 	return strings.NewReplacer(c.Yomi...), nil
 }
 
-func (c Condition) IsNotified(item string) bool {
+func (c Condition) isNotified(item string) bool {
 	for _, v := range c.Includes {
 		if v == item {
 			return true
@@ -39,7 +41,7 @@ func (c Condition) IsNotified(item string) bool {
 	return false
 }
 
-func (c Condition) IsMute(item string) bool {
+func (c Condition) isMute(item string) bool {
 	for _, v := range c.Excludes {
 		if v == item {
 			return true
@@ -48,6 +50,7 @@ func (c Condition) IsMute(item string) bool {
 	return false
 }
 
+// NewConfigReader creates a config of slacksay bot from io reader.
 func NewConfigReader(r io.Reader) (*Config, error) {
 	dec := json.NewDecoder(r)
 	var c Config
@@ -55,6 +58,7 @@ func NewConfigReader(r io.Reader) (*Config, error) {
 	return &c, err
 }
 
+// String returns json representation of the config.
 func (c Config) String() string {
 	b, err := json.MarshalIndent(c, "", "\t")
 	if err != nil {

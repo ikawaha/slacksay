@@ -12,29 +12,29 @@ import (
 )
 
 const (
-	CommandName  = "slacksay"
+	commandName  = "slacksay"
 	usageMessage = "%s -t <slack_token> [-d (<json data>|@<file_name>|@-)]"
 )
 
 // Usage provides information on the use of the server
 func Usage() {
-	log.Printf(usageMessage, CommandName)
+	log.Printf(usageMessage, commandName)
 }
 
 func main() {
 	if len(os.Args) < 2 {
 		Usage()
-		PrintOptionDefaults(flag.ExitOnError)
+		printOptionDefaults(flag.ExitOnError)
 		return
 	}
 	opt := newOption(flag.ExitOnError)
 	if err := opt.parse(os.Args[1:]); err != nil {
 		Usage()
-		PrintOptionDefaults(flag.ExitOnError)
-		fmt.Fprintf(os.Stderr, "%v, %v", CommandName, err)
+		printOptionDefaults(flag.ExitOnError)
+		fmt.Fprintf(os.Stderr, "%v, %v", commandName, err)
 		return
 	}
-	config, err := opt.NewConfig()
+	config, err := opt.newConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "configureation error, %v", err)
 		return
