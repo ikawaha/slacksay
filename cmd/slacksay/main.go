@@ -5,8 +5,8 @@ import (
 	"flag"
 	"log"
 	"os"
-	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/ikawaha/slacksay"
 )
 
@@ -54,12 +54,16 @@ func main() {
 			log.Printf("receive error, %v", err)
 			cancel()
 			bot.Close()
-			ctx, cancel = context.WithCancel(context.Background())
-			time.Sleep(3 * time.Second)
-			if bot, err = slacksay.NewBot(ctx, opt.token, config); err != nil { // reboot
-				log.Fatalf("reboot failed, %v", err)
+			if err := backoff.Retry(func() error {
+				ctx, cancel = context.WithCancel(context.Background())
+				if bot, err = slacksay.NewBot(ctx, opt.token, config); err != nil { // reboot
+					return err
+				}
+				log.Printf("reboot")
+				return nil
+			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3)); err != nil {
+				log.Fatalf("backoff failed, %v", err)
 			}
-			log.Printf("reboot")
 			continue
 		}
 		log.Printf("bot_id: %v, msg_user_id: %v, msg:%+v\n", bot.ID, msg.UserID, msg)
