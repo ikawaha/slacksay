@@ -67,9 +67,6 @@ func main() {
 			continue
 		}
 		log.Printf("bot_id: %v, msg_user_id: %v, msg:%+v\n", bot.ID, msg.UserID, msg)
-		if msg.Type != "message" && len(msg.Text) == 0 {
-			continue
-		}
 		go bot.Response(&msg)
 	}
 }
