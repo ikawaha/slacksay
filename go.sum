@@ -1,3 +1,5 @@
+github.com/cenkalti/backoff v2.1.1+incompatible h1:tKJnvO2kl0zmb/jA5UKAt4VoEVw1qxKWjE/Bpp46npY=
+github.com/cenkalti/backoff v2.1.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/ikawaha/slackbot v1.1.1 h1:JNy/izAHhqshm97y7IaU5RV6mPNbnQxUfcWbPOXijPw=
 github.com/ikawaha/slackbot v1.1.1/go.mod h1:+PhPvCxFWX43iZfIWHETMl116eGceWVyeCiPCrSSMIM=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
