@@ -19,7 +19,7 @@ var replacer *strings.Replacer
 const (
 	sayCommand        = "say"
 	sayCommandTimeout = 1 * time.Minute
-	listenWait        = 1 * time.Second
+	listenWait        = 3 * time.Second
 	messageQueueSize  = 128
 	speakerQueueSize  = 128
 	botMessageSubType = "bot_message"
@@ -122,7 +122,6 @@ func (bot Bot) workerListener(ctx context.Context) {
 	q := make(chan string, speakerQueueSize)
 	go bot.workerSpeaker(ctx, q)
 
-	talks := map[string][]string{}
 	for {
 		select {
 		case msg, ok := <-bot.queue:
@@ -142,14 +141,7 @@ func (bot Bot) workerListener(ctx context.Context) {
 			if user == "" {
 				user = "不明"
 			}
-			txt = fmt.Sprintf("%v。発言者%v。チャンネル%v", txt, user, slackChannel)
-			talks[msg.Channel] = append(talks[msg.Channel], txt)
-			log.Printf("%v>>> %v\n", bot.command, txt)
-		case <-time.After(listenWait):
-			for _, v := range talks {
-				q <- strings.Join(v, "。")
-			}
-			talks = map[string][]string{}
+			q <- fmt.Sprintf("%v。発言者%v。チャンネル%v", txt, user, slackChannel)
 		case <-ctx.Done():
 			return
 		}
