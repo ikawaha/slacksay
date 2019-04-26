@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -31,23 +30,23 @@ func main() {
 	if err := opt.parse(os.Args[1:]); err != nil {
 		Usage()
 		printOptionDefaults(flag.ExitOnError)
-		fmt.Fprintf(os.Stderr, "%v, %v", commandName, err)
+		log.Printf("%v, %v", commandName, err)
 		return
 	}
 	config, err := opt.newConfig()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "configureation error, %v", err)
+		log.Printf("configureation error, %v", err)
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	bot, err := slacksay.NewBot(ctx, opt.token, config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "configureation error, %v", err)
+		log.Printf("configureation error, %v", err)
 		return
 	}
 	defer bot.Close()
-	fmt.Fprintf(os.Stderr, "%+v\n", config.String())
-	fmt.Fprintln(os.Stderr, "^C exits")
+	log.Printf("%+v\n", config.String())
+	log.Printf("^C exits")
 
 	for {
 		msg, err := bot.GetMessage(ctx)
