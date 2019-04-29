@@ -3,65 +3,70 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 
+	"github.com/cenkalti/backoff"
 	"github.com/ikawaha/slacksay"
 )
 
 const (
-	CommandName  = "slacksay"
+	commandName  = "slacksay"
 	usageMessage = "%s -t <slack_token> [-d (<json data>|@<file_name>|@-)]"
 )
 
 // Usage provides information on the use of the server
 func Usage() {
-	log.Printf(usageMessage, CommandName)
+	log.Printf(usageMessage, commandName)
 }
 
 func main() {
 	if len(os.Args) < 2 {
 		Usage()
-		PrintOptionDefaults(flag.ExitOnError)
+		printOptionDefaults(flag.ExitOnError)
 		return
 	}
 	opt := newOption(flag.ExitOnError)
 	if err := opt.parse(os.Args[1:]); err != nil {
 		Usage()
-		PrintOptionDefaults(flag.ExitOnError)
-		fmt.Fprintf(os.Stderr, "%v, %v", CommandName, err)
+		printOptionDefaults(flag.ExitOnError)
+		log.Printf("%v, %v", commandName, err)
 		return
 	}
-	config, err := opt.NewConfig()
+	config, err := opt.newConfig()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "configureation error, %v", err)
+		log.Printf("configureation error, %v", err)
 		return
 	}
-	bot, err := slacksay.NewBot(context.Background(), opt.token, config)
+	ctx, cancel := context.WithCancel(context.Background())
+	bot, err := slacksay.NewBot(ctx, opt.token, config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "configureation error, %v", err)
+		log.Printf("configureation error, %v", err)
 		return
 	}
 	defer bot.Close()
-	fmt.Fprintf(os.Stderr, "%+v\n", config.String())
-	fmt.Fprintln(os.Stderr, "^C exits")
+	log.Printf("%+v\n", config.String())
+	log.Printf("^C exits")
 
 	for {
-		msg, err := bot.GetMessage()
+		msg, err := bot.GetMessage(ctx)
 		if err != nil {
 			log.Printf("receive error, %v", err)
+			cancel()
 			bot.Close()
-			if bot, err = slacksay.NewBot(context.Background(), opt.token, config); err != nil { // reboot
-				log.Fatalf("reboot failed, %v", err)
+			if err := backoff.Retry(func() error {
+				ctx, cancel = context.WithCancel(context.Background())
+				if bot, err = slacksay.NewBot(ctx, opt.token, config); err != nil { // reboot
+					return err
+				}
+				log.Printf("reboot")
+				return nil
+			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3)); err != nil {
+				log.Fatalf("backoff failed, %v", err)
 			}
-			log.Printf("reboot")
 			continue
 		}
 		log.Printf("bot_id: %v, msg_user_id: %v, msg:%+v\n", bot.ID, msg.UserID, msg)
-		if msg.Type != "message" && len(msg.TextBody()) == 0 {
-			continue
-		}
 		go bot.Response(&msg)
 	}
 }

@@ -37,16 +37,16 @@ func (o *option) parse(args []string) error {
 	}
 	// validations
 	if nonFlag := o.flagSet.Args(); len(nonFlag) != 0 {
-		return fmt.Errorf("invalid arguments, %+v\n", nonFlag)
+		return fmt.Errorf("invalid arguments, %+v", nonFlag)
 	}
 	if o.token == "" {
-		return fmt.Errorf("token is required\n")
+		return fmt.Errorf("token is required")
 	}
 	return nil
 }
 
-// PrintOptionDefaults prints out the default flags
-func PrintOptionDefaults(eh flag.ErrorHandling) {
+// printOptionDefaults prints out the default flags
+func printOptionDefaults(eh flag.ErrorHandling) {
 	o := newOption(eh)
 	o.flagSet.PrintDefaults()
 }
@@ -56,7 +56,7 @@ var defaultConfig = slacksay.Config{
 	BotMessage: false,
 }
 
-func (o option) NewConfig() (*slacksay.Config, error) {
+func (o option) newConfig() (*slacksay.Config, error) {
 	var ret slacksay.Config
 	if o.data == "" {
 		ret = defaultConfig

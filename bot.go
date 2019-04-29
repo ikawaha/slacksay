@@ -17,14 +17,15 @@ import (
 var replacer *strings.Replacer
 
 const (
-	SayCommand               = "say"
-	DefaultSayCommandTimeout = 1 * time.Minute
-	ListenWait               = 1 * time.Second
-	MessageQueueSize         = 128
-	SpeakerQueueSize         = 128
-	BotMessageSubType        = "bot_message"
+	sayCommand        = "say"
+	sayCommandTimeout = 1 * time.Minute
+	listenWait        = 3 * time.Second
+	messageQueueSize  = 128
+	speakerQueueSize  = 128
+	botMessageSubType = "bot_message"
 )
 
+// Bot represents slack bot client.
 type Bot struct {
 	*slackbot.Client
 	config  *Config
@@ -38,21 +39,22 @@ type Bot struct {
 	queue chan *slackbot.Message
 }
 
+// NewBot returns a client.
 func NewBot(ctx context.Context, token string, cfg *Config) (*Bot, error) {
 	ret := Bot{
 		config: cfg,
-		queue:  make(chan *slackbot.Message, MessageQueueSize),
+		queue:  make(chan *slackbot.Message, messageQueueSize),
 	}
 	c, err := slackbot.New(token)
 	if err != nil {
 		return nil, err
 	}
 	ret.Client = c
-	ret.command = SayCommand
+	ret.command = sayCommand
 	if cfg.Command != "" {
 		ret.command = cfg.Command
 	}
-	ret.timeout = DefaultSayCommandTimeout
+	ret.timeout = sayCommandTimeout
 	if cfg.Timeout != "" {
 		d, err := time.ParseDuration(cfg.Timeout)
 		if err != nil {
@@ -60,13 +62,13 @@ func NewBot(ctx context.Context, token string, cfg *Config) (*Bot, error) {
 		}
 		ret.timeout = d
 	}
-	if ret.channelYomi, err = cfg.Channel.NewYomiReplacer(); err != nil {
+	if ret.channelYomi, err = cfg.Channel.newYomiReplacer(); err != nil {
 		return nil, fmt.Errorf("invalid channel yomi format")
 	}
-	if ret.userYomi, err = cfg.User.NewYomiReplacer(); err != nil {
+	if ret.userYomi, err = cfg.User.newYomiReplacer(); err != nil {
 		return nil, fmt.Errorf("invalid user yomi format")
 	}
-	if ret.keywordYomi, err = cfg.Keyword.NewYomiReplacer(); err != nil {
+	if ret.keywordYomi, err = cfg.Keyword.newYomiReplacer(); err != nil {
 		return nil, fmt.Errorf("invalid keyword yomi format")
 	}
 
@@ -75,57 +77,58 @@ func NewBot(ctx context.Context, token string, cfg *Config) (*Bot, error) {
 	return &ret, nil
 }
 
+// Close closes client connections.
 func (bot Bot) Close() {
+	close(bot.queue)
 	if err := bot.Client.Close(); err != nil {
 		log.Printf("bot close, %v", err)
 	}
-	close(bot.queue)
 }
 
-func (bot Bot) Filter(msg *slackbot.Message) (ok bool) {
-	if bot.config.Channel.IsNotified(bot.Channels[msg.Channel]) {
+func (bot Bot) filter(msg *slackbot.Message) (ok bool) {
+	if bot.config.Channel.isNotified(bot.Channels[msg.Channel]) {
 		return true
 	}
-	if bot.config.User.IsNotified(bot.Users[msg.UserID]) {
+	if bot.config.User.isNotified(bot.Users[msg.UserID]) {
 		return true
 	}
-	if bot.config.Keyword.IsNotified(bot.Users[msg.UserID]) {
+	if bot.config.Keyword.isNotified(bot.Users[msg.UserID]) {
 		return true
 	}
-	if !bot.config.BotMessage && msg.SubType == BotMessageSubType {
+	if !bot.config.BotMessage && msg.SubType == botMessageSubType {
 		return false
 	}
-	if bot.config.Channel.IsMute(bot.Channels[msg.Channel]) {
+	if bot.config.Channel.isMute(bot.Channels[msg.Channel]) {
 		return false
 	}
-	if bot.config.User.IsMute(bot.Users[msg.UserID]) {
+	if bot.config.User.isMute(bot.Users[msg.UserID]) {
 		return false
 	}
-	if bot.config.Keyword.IsMute(bot.Users[msg.UserID]) {
+	if bot.config.Keyword.isMute(bot.Users[msg.UserID]) {
 		return false
 	}
 	return true
 }
 
+// Response processes a slack message.
 func (bot Bot) Response(msg *slackbot.Message) {
-	if !bot.Filter(msg) {
+	if !bot.filter(msg) {
 		return
 	}
 	bot.queue <- msg
 }
 
 func (bot Bot) workerListener(ctx context.Context) {
-	q := make(chan string, SpeakerQueueSize)
+	q := make(chan string, speakerQueueSize)
 	go bot.workerSpeaker(ctx, q)
 
-	talks := map[string][]string{}
 	for {
 		select {
 		case msg, ok := <-bot.queue:
 			if !ok {
 				return
 			}
-			txt := strings.ToLower(msg.TextBody())
+			txt := strings.ToLower(msg.Text)
 			if len(txt) == 0 {
 				continue
 			}
@@ -138,14 +141,7 @@ func (bot Bot) workerListener(ctx context.Context) {
 			if user == "" {
 				user = "不明"
 			}
-			txt = fmt.Sprintf("%v。発言者%v。チャンネル%v", txt, user, slackChannel)
-			talks[msg.Channel] = append(talks[msg.Channel], txt)
-			log.Printf("%v>>> %v\n", bot.command, txt)
-		case <-time.After(ListenWait):
-			for _, v := range talks {
-				q <- strings.Join(v, "。")
-			}
-			talks = map[string][]string{}
+			q <- fmt.Sprintf("%v。発言者%v。チャンネル%v", txt, user, slackChannel)
 		case <-ctx.Done():
 			return
 		}
