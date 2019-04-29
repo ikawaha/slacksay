@@ -41,8 +41,8 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	bot, err := slacksay.NewBot(ctx, opt.token, config)
 	if err != nil {
-		log.Printf("configureation error, %v", err)
-		return
+		cancel()
+		log.Fatalf("configureation error, %v", err)
 	}
 	defer bot.Close()
 	log.Printf("%+v\n", config.String())
@@ -57,6 +57,7 @@ func main() {
 			if err := backoff.Retry(func() error {
 				ctx, cancel = context.WithCancel(context.Background())
 				if bot, err = slacksay.NewBot(ctx, opt.token, config); err != nil { // reboot
+					cancel()
 					return err
 				}
 				log.Printf("reboot")
