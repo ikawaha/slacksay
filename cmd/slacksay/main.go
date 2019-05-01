@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/cenkalti/backoff"
 	"github.com/ikawaha/slacksay"
@@ -13,6 +15,7 @@ import (
 const (
 	commandName  = "slacksay"
 	usageMessage = "%s -t <slack_token> [-d (<json data>|@<file_name>|@-)]"
+	maxRetry     = 3
 )
 
 // Usage provides information on the use of the server
@@ -38,34 +41,31 @@ func main() {
 		log.Printf("configureation error, %v", err)
 		return
 	}
+	if err := backoff.RetryNotify(
+		func() error { return loop(opt.token, config) },
+		backoff.WithMaxRetries(backoff.NewExponentialBackOff(), maxRetry),
+		func(err error, d time.Duration) { log.Printf("backoff after %v, %v", d, err) },
+	); err != nil {
+		log.Printf("%v", err)
+		return
+	}
+	return
+}
+
+func loop(token string, config *slacksay.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	bot, err := slacksay.NewBot(ctx, opt.token, config)
+	defer cancel()
+	bot, err := slacksay.NewBot(ctx, token, config)
 	if err != nil {
-		cancel()
-		log.Fatalf("configureation error, %v", err)
+		return fmt.Errorf("configureation error, %v, %v", err, time.Now())
 	}
 	defer bot.Close()
 	log.Printf("%+v\n", config.String())
 	log.Printf("^C exits")
-
 	for {
 		msg, err := bot.GetMessage(ctx)
 		if err != nil {
-			log.Printf("receive error, %v", err)
-			cancel()
-			bot.Close()
-			if err := backoff.Retry(func() error {
-				ctx, cancel = context.WithCancel(context.Background())
-				if bot, err = slacksay.NewBot(ctx, opt.token, config); err != nil { // reboot
-					cancel()
-					return err
-				}
-				log.Printf("reboot")
-				return nil
-			}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3)); err != nil {
-				log.Fatalf("backoff failed, %v", err)
-			}
-			continue
+			return fmt.Errorf("receive error, %v", err)
 		}
 		log.Printf("bot_id: %v, msg_user_id: %v, msg:%+v\n", bot.ID, msg.UserID, msg)
 		go bot.Response(&msg)
