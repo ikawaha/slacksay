@@ -19,10 +19,11 @@ type Config struct {
 
 // Condition represents message filters and pronunciations for some keywords.
 type Condition struct {
-	Yomi     []string          `json:"yomi"`
-	Includes []string          `json:"includes"`
-	Excludes []string          `json:"excludes"`
-	replacer *strings.Replacer `json:"-"`
+	Yomi     []string `json:"yomi"`
+	Includes []string `json:"includes"`
+	Excludes []string `json:"excludes"`
+
+	replacer *strings.Replacer
 }
 
 func (c Condition) newYomiReplacer() (*strings.Replacer, error) {
