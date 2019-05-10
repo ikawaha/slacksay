@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	commandName  = "slacksay"
-	usageMessage = "%s -t <slack_token> [-d (<json data>|@<file_name>|@-)]"
-	maxRetry     = 3
+	commandName     = "slacksay"
+	usageMessage    = "%s -t <slack_token> [-d (<json data>|@<file_name>|@-)]"
+	maxRetry        = 3
+	backoffDuration = 3 * time.Second
 )
 
 // Usage provides information on the use of the server
@@ -41,11 +42,9 @@ func main() {
 		log.Printf("configureation error, %v", err)
 		return
 	}
-	if err := backoff.RetryNotify(
-		func() error { return loop(opt.token, config) },
-		backoff.WithMaxRetries(backoff.NewExponentialBackOff(), maxRetry),
-		func(err error, d time.Duration) { log.Printf("backoff after %v, %v", d, err) },
-	); err != nil {
+	if err := backoff.Retry(func() error {
+		return loop(opt.token, config)
+	}, backoff.NewConstantBackOff(backoffDuration)); err != nil {
 		log.Printf("%v", err)
 		return
 	}
@@ -57,7 +56,7 @@ func loop(token string, config *slacksay.Config) error {
 	defer cancel()
 	bot, err := slacksay.NewBot(ctx, token, config)
 	if err != nil {
-		return fmt.Errorf("configureation error, %v, %v", err, time.Now())
+		return fmt.Errorf("bot construction error, %v, %v", err, time.Now()) // Exit
 	}
 	defer bot.Close()
 	log.Printf("%+v\n", config.String())
