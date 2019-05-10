@@ -128,7 +128,8 @@ func (bot Bot) workerListener(ctx context.Context) {
 			if !ok {
 				return
 			}
-			txt := strings.ToLower(msg.Text)
+			txt := bot.PlainMessageText(msg.Text)
+			txt = strings.ToLower(txt)
 			if len(txt) == 0 {
 				continue
 			}
