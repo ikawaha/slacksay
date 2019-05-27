@@ -19,7 +19,6 @@ var replacer *strings.Replacer
 const (
 	sayCommand        = "say"
 	sayCommandTimeout = 1 * time.Minute
-	listenWait        = 3 * time.Second
 	messageQueueSize  = 128
 	speakerQueueSize  = 128
 	botMessageSubType = "bot_message"
@@ -92,7 +91,7 @@ func (bot Bot) filter(msg *slackbot.Message) (ok bool) {
 	if bot.config.User.isNotified(bot.Users[msg.UserID]) {
 		return true
 	}
-	if bot.config.Keyword.isNotified(bot.Users[msg.UserID]) {
+	if bot.config.Keyword.isNotified(msg.Text) {
 		return true
 	}
 	if !bot.config.BotMessage && msg.SubType == botMessageSubType {
@@ -104,7 +103,7 @@ func (bot Bot) filter(msg *slackbot.Message) (ok bool) {
 	if bot.config.User.isMute(bot.Users[msg.UserID]) {
 		return false
 	}
-	if bot.config.Keyword.isMute(bot.Users[msg.UserID]) {
+	if bot.config.Keyword.isMute(msg.Text) {
 		return false
 	}
 	return true
@@ -112,6 +111,11 @@ func (bot Bot) filter(msg *slackbot.Message) (ok bool) {
 
 // Response processes a slack message.
 func (bot Bot) Response(msg *slackbot.Message) {
+	if msg.Text == "" {
+		return
+	}
+	msg.Text = bot.ToPlainMessageText(msg.Text)
+	msg.Text = strings.ToLower(msg.Text)
 	if !bot.filter(msg) {
 		return
 	}
@@ -128,13 +132,12 @@ func (bot Bot) workerListener(ctx context.Context) {
 			if !ok {
 				return
 			}
-			txt := bot.PlainMessageText(msg.Text)
-			txt = strings.ToLower(txt)
-			if len(txt) == 0 {
-				continue
+			txt := bot.keywordYomi.Replace(msg.Text)
+			slackChannel, ok := bot.Channels[msg.Channel]
+			if !ok {
+				slackChannel = bot.Groups[msg.Channel]
 			}
-			txt = bot.keywordYomi.Replace(txt)
-			slackChannel := bot.channelYomi.Replace(bot.Channels[msg.Channel])
+			slackChannel = bot.channelYomi.Replace(slackChannel)
 			if slackChannel == "" {
 				slackChannel = "不明"
 			}
@@ -157,58 +160,38 @@ func (bot Bot) workerSpeaker(ctx context.Context, q <-chan string) {
 			if !ok {
 				return
 			}
-			var wg sync.WaitGroup
-			wg.Add(1)
-			if err := bot.say(ctx, &wg, msg); err != nil {
+			var m sync.Mutex
+			m.Lock()
+			if err := bot.say(ctx, &m, msg); err != nil {
 				log.Println("worker speaker, ", err)
 			}
-			wg.Wait()
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (bot Bot) say(ctx context.Context, wg *sync.WaitGroup, s string) error {
-	defer wg.Done()
+func (bot Bot) say(ctx context.Context, m *sync.Mutex, s string) error {
+	defer m.Unlock()
 	if _, err := exec.LookPath(bot.command); err != nil {
 		return fmt.Errorf("command %v is not installed in your $PATH", bot.command)
 	}
-	cmd := exec.Command(bot.command)
 	r0, w0 := io.Pipe()
+	ctx, cancel := context.WithTimeout(ctx, bot.timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bot.command)
 	cmd.Stdin = r0
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("process done with error = %v", err)
+		return err
 	}
-	done := make(chan error, 1)
-	go func() {
-		done <- cmd.Wait()
-	}()
-
 	if _, err := io.Copy(w0, bytes.NewBufferString(s)); err != nil {
-		done <- err
+		return err
 	}
 	if err := w0.Close(); err != nil {
-		done <- err
+		return err
 	}
-
-	select {
-	case <-time.After(bot.timeout):
-		if err := cmd.Process.Kill(); err != nil {
-			return fmt.Errorf("failed to kill, %v", err)
-		}
-		<-done
-		return fmt.Errorf("%v command timeout", bot.command)
-	case <-ctx.Done():
-		if err := cmd.Process.Kill(); err != nil {
-			return fmt.Errorf("failed to kill, %v", err)
-		}
-		<-done
-		return fmt.Errorf("%v context done", bot.command)
-	case err := <-done:
-		if err != nil {
-			return fmt.Errorf("process done with error, %v", err)
-		}
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("process done with error, %v", err)
 	}
 	return nil
 }
