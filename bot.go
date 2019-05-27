@@ -157,58 +157,38 @@ func (bot Bot) workerSpeaker(ctx context.Context, q <-chan string) {
 			if !ok {
 				return
 			}
-			var wg sync.WaitGroup
-			wg.Add(1)
-			if err := bot.say(ctx, &wg, msg); err != nil {
+			var m sync.Mutex
+			m.Lock()
+			if err := bot.say(ctx, &m, msg); err != nil {
 				log.Println("worker speaker, ", err)
 			}
-			wg.Wait()
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (bot Bot) say(ctx context.Context, wg *sync.WaitGroup, s string) error {
-	defer wg.Done()
+func (bot Bot) say(ctx context.Context, m *sync.Mutex, s string) error {
+	defer m.Unlock()
 	if _, err := exec.LookPath(bot.command); err != nil {
 		return fmt.Errorf("command %v is not installed in your $PATH", bot.command)
 	}
-	cmd := exec.Command(bot.command)
 	r0, w0 := io.Pipe()
+	ctx, cancel := context.WithTimeout(ctx, bot.timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bot.command)
 	cmd.Stdin = r0
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("process done with error = %v", err)
+		return err
 	}
-	done := make(chan error, 1)
-	go func() {
-		done <- cmd.Wait()
-	}()
-
 	if _, err := io.Copy(w0, bytes.NewBufferString(s)); err != nil {
-		done <- err
+		return err
 	}
 	if err := w0.Close(); err != nil {
-		done <- err
+		return err
 	}
-
-	select {
-	case <-time.After(bot.timeout):
-		if err := cmd.Process.Kill(); err != nil {
-			return fmt.Errorf("failed to kill, %v", err)
-		}
-		<-done
-		return fmt.Errorf("%v command timeout", bot.command)
-	case <-ctx.Done():
-		if err := cmd.Process.Kill(); err != nil {
-			return fmt.Errorf("failed to kill, %v", err)
-		}
-		<-done
-		return fmt.Errorf("%v context done", bot.command)
-	case err := <-done:
-		if err != nil {
-			return fmt.Errorf("process done with error, %v", err)
-		}
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("process done with error, %v", err)
 	}
 	return nil
 }
