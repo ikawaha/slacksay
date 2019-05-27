@@ -19,7 +19,6 @@ var replacer *strings.Replacer
 const (
 	sayCommand        = "say"
 	sayCommandTimeout = 1 * time.Minute
-	listenWait        = 3 * time.Second
 	messageQueueSize  = 128
 	speakerQueueSize  = 128
 	botMessageSubType = "bot_message"
@@ -92,7 +91,7 @@ func (bot Bot) filter(msg *slackbot.Message) (ok bool) {
 	if bot.config.User.isNotified(bot.Users[msg.UserID]) {
 		return true
 	}
-	if bot.config.Keyword.isNotified(bot.Users[msg.UserID]) {
+	if bot.config.Keyword.isNotified(msg.Text) {
 		return true
 	}
 	if !bot.config.BotMessage && msg.SubType == botMessageSubType {
@@ -104,7 +103,7 @@ func (bot Bot) filter(msg *slackbot.Message) (ok bool) {
 	if bot.config.User.isMute(bot.Users[msg.UserID]) {
 		return false
 	}
-	if bot.config.Keyword.isMute(bot.Users[msg.UserID]) {
+	if bot.config.Keyword.isMute(msg.Text) {
 		return false
 	}
 	return true
@@ -112,6 +111,11 @@ func (bot Bot) filter(msg *slackbot.Message) (ok bool) {
 
 // Response processes a slack message.
 func (bot Bot) Response(msg *slackbot.Message) {
+	if msg.Text == "" {
+		return
+	}
+	msg.Text = bot.ToPlainMessageText(msg.Text)
+	msg.Text = strings.ToLower(msg.Text)
 	if !bot.filter(msg) {
 		return
 	}
@@ -128,13 +132,12 @@ func (bot Bot) workerListener(ctx context.Context) {
 			if !ok {
 				return
 			}
-			txt := bot.PlainMessageText(msg.Text)
-			txt = strings.ToLower(txt)
-			if len(txt) == 0 {
-				continue
+			txt := bot.keywordYomi.Replace(msg.Text)
+			slackChannel, ok := bot.Channels[msg.Channel]
+			if !ok {
+				slackChannel = bot.Groups[msg.Channel]
 			}
-			txt = bot.keywordYomi.Replace(txt)
-			slackChannel := bot.channelYomi.Replace(bot.Channels[msg.Channel])
+			slackChannel = bot.channelYomi.Replace(slackChannel)
 			if slackChannel == "" {
 				slackChannel = "不明"
 			}
