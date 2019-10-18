@@ -13,7 +13,6 @@ jobs:
         go-version: 1.13
       id: go
 
-    - name: Build
+    - name: Check
       run: |
         go vet ./...
-        go build -v ./cmd/slacksay
