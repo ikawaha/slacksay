@@ -14,4 +14,4 @@ jobs:
       id: go
 
     - name: Build
-      run: go build -v .
+      run: go build -v ./...
