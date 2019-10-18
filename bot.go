@@ -114,7 +114,7 @@ func (bot Bot) Response(msg *slackbot.Message) {
 	if msg.Text == "" {
 		return
 	}
-	msg.Text = bot.ToPlainMessageText(msg.Text)
+	msg.Text = bot.PlainMessageText(msg.Text)
 	msg.Text = strings.ToLower(msg.Text)
 	if !bot.filter(msg) {
 		return
