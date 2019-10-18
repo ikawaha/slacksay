@@ -114,7 +114,7 @@ func (bot Bot) Response(msg *slackbot.Message) {
 	if msg.Text == "" {
 		return
 	}
-	msg.Text = bot.ToPlainMessageText(msg.Text)
+	msg.Text = bot.PlainMessageText(msg.Text)
 	msg.Text = strings.ToLower(msg.Text)
 	if !bot.filter(msg) {
 		return
@@ -135,7 +135,7 @@ func (bot Bot) workerListener(ctx context.Context) {
 			txt := bot.keywordYomi.Replace(msg.Text)
 			slackChannel, ok := bot.Channels[msg.Channel]
 			if !ok {
-				slackChannel = bot.Groups[msg.Channel]
+				slackChannel = ""
 			}
 			slackChannel = bot.channelYomi.Replace(slackChannel)
 			if slackChannel == "" {
