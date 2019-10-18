@@ -135,7 +135,7 @@ func (bot Bot) workerListener(ctx context.Context) {
 			txt := bot.keywordYomi.Replace(msg.Text)
 			slackChannel, ok := bot.Channels[msg.Channel]
 			if !ok {
-				slackChannel = bot.Groups[msg.Channel]
+				slackChannel = ""
 			}
 			slackChannel = bot.channelYomi.Replace(slackChannel)
 			if slackChannel == "" {
