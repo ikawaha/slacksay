@@ -1,3 +1,5 @@
+![Build Status](https://github.com/ikawaha/slacksay/workflows/Go/badge.svg)
+
 slacksay
 ===
 
